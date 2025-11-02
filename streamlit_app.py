@@ -3,9 +3,11 @@ import google.generativeai as genai
 import PyPDF2
 from docx import Document
 import openpyxl
-import io
 from pptx import Presentation
+import io
 import json
+
+st.set_page_config(page_title="📄 ドキュメントQA & 🤖 Gemini Chat", layout="wide")
 
 st.title("📄 アップしてゲット & 🤖 おしえてGemini")
 st.write(
@@ -17,18 +19,19 @@ gemini_api_key = st.text_input("Gemini APIキー", type="password")
 if not gemini_api_key:
     st.info("Gemini APIキーを入力してください。", icon="🔑")
 else:
+    # API設定
     genai.configure(api_key=gemini_api_key)
     model = genai.GenerativeModel("gemini-pro")
 
     tab1, tab2 = st.tabs(["ドキュメントQA", "チャットボット"])
 
-    # 履歴データの初期化
+    # セッションステート初期化
     if "history_doc" not in st.session_state:
         st.session_state["history_doc"] = []
     if "history_chat" not in st.session_state:
         st.session_state["history_chat"] = []
 
-    # -------- ドキュメントQA -------- #
+    # ===== ドキュメントQA =====
     with tab1:
         uploaded_file = st.file_uploader(
             "ドキュメントをアップロードしてください（.txt, .md, .pdf, .docx, .xlsx, .pptx）", 
@@ -45,45 +48,56 @@ else:
         def extract_text(file):
             filename = file.name
             ext = filename.split('.')[-1].lower()
-            if ext in ['txt', 'md']:
-                return file.read().decode()
-            elif ext == 'pdf':
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += page.extract_text() or ""
-                return text
-            elif ext == 'docx':
-                doc = Document(io.BytesIO(file.read()))
-                return "\n".join([para.text for para in doc.paragraphs])
-            elif ext == 'xlsx':
-                wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
-                text = ""
-                for ws in wb.worksheets:
-                    for row in ws.iter_rows(values_only=True):
-                        text += " ".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
-                return text
-            elif ext == 'pptx':
-                prs = Presentation(io.BytesIO(file.read()))
-                text = ""
-                for slide in prs.slides:
-                    for shape in slide.shapes:
-                        if hasattr(shape, "text"):
-                            text += shape.text + "\n"
-                return text
-            else:
-                return None
+            try:
+                if ext in ['txt', 'md']:
+                    return file.read().decode(errors="ignore")
+                elif ext == 'pdf':
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    text = ""
+                    for page in pdf_reader.pages:
+                        text += page.extract_text() or ""
+                    return text
+                elif ext == 'docx':
+                    doc = Document(io.BytesIO(file.read()))
+                    return "\n".join([para.text for para in doc.paragraphs])
+                elif ext == 'xlsx':
+                    wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+                    text = ""
+                    for ws in wb.worksheets:
+                        for row in ws.iter_rows(values_only=True):
+                            text += " ".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
+                    return text
+                elif ext == 'pptx':
+                    prs = Presentation(io.BytesIO(file.read()))
+                    text = ""
+                    for slide in prs.slides:
+                        for shape in slide.shapes:
+                            # 通常テキスト
+                            if hasattr(shape, "text") and shape.text:
+                                text += shape.text + "\n"
+                            # テーブル内テキスト
+                            if shape.has_table:
+                                for row in shape.table.rows:
+                                    for cell in row.cells:
+                                        text += cell.text + " "
+                                text += "\n"
+                    return text
+                else:
+                    return ""
+            except Exception as e:
+                st.warning(f"ファイル読み込みエラー: {e}")
+                return ""
 
         if uploaded_file and question:
             document = extract_text(uploaded_file)
-            if not document or document.strip() == "":
+            if not document.strip():
                 st.error("ファイルからテキストを抽出できませんでした。")
             else:
                 prompt = f"以下はドキュメントです:\n{document}\n\n---\n\n{question}"
                 try:
                     response = model.generate_content(prompt)
-                    answer = response.text
-                    st.write(answer)
+                    answer = getattr(response, "text", "エラー: レスポンスがありません")
+                    st.success(answer)
                     st.session_state["history_doc"].append({
                         "question": question,
                         "answer": answer,
@@ -93,6 +107,7 @@ else:
                 except Exception as e:
                     st.error(f"Gemini APIエラー: {e}")
 
+        # 履歴表示
         st.header("履歴（ドキュメントQA）")
         for i, h in enumerate(st.session_state["history_doc"]):
             col1, col2 = st.columns([10, 1])
@@ -113,7 +128,7 @@ else:
         history_json = json.dumps(st.session_state["history_doc"], ensure_ascii=False, indent=2)
         st.download_button("履歴をダウンロード（ドキュメントQA）", data=history_json, file_name="history_doc.json", mime="application/json")
 
-    # -------- チャットボット -------- #
+    # ===== チャットボット =====
     with tab2:
         user_message = st.text_area(
             "チャットを入力してください",
@@ -124,8 +139,8 @@ else:
         if user_message:
             try:
                 response = model.generate_content(user_message)
-                answer = response.text
-                st.write(answer)
+                answer = getattr(response, "text", "エラー: レスポンスがありません")
+                st.success(answer)
                 st.session_state["history_chat"].append({
                     "question": user_message,
                     "answer": answer,
