@@ -8,7 +8,7 @@ import openpyxl
 import io
 
 # タイトルと説明を表示
-st.title("📄 ドキュメント質問応答")
+st.title("📄 まとめてくれると嬉しいな")
 st.write(
     "下のフォームからドキュメントをアップロードし、質問を入力してください。GPTが回答します！"
     "このアプリを利用するには OpenAI API キーが必要です。取得方法は[こちら](https://platform.openai.com/account/api-keys)。"
