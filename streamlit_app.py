@@ -21,7 +21,7 @@ if not gemini_api_key:
 else:
     # API設定
     genai.configure(api_key=gemini_api_key)
-    model = genai.GenerativeModel("gemini-pro")
+    model = genai.GenerativeModel("gemini-2.5-pro")
 
     tab1, tab2 = st.tabs(["ドキュメントQA", "チャットボット"])
 
