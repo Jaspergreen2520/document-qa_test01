@@ -9,7 +9,7 @@ import json
 
 st.set_page_config(page_title="ドキュメントQA & チャットボット", layout="wide")
 
-st.title("📄 ドキュメント質問応答 & 🤖 チャットボット（Gemini 1.5対応）")
+st.title("📄 ドキュメント質問応答 & 🤖 チャットボット（gemini-2.5-pro対応）")
 st.write(
     "ドキュメントQA（ファイル質問）とチャットボット（自由会話）が使えます。"
     "このアプリを利用するには Gemini API Key が必要です。取得方法は[こちら](https://aistudio.google.com/app/apikey)。"
@@ -23,7 +23,7 @@ if not gemini_api_key:
 else:
     genai.configure(api_key=gemini_api_key)
     # 正しいモデル名を指定
-    model = genai.TextGenerationModel("gemini-1.5")
+    model = genai.TextGenerationModel("gemini-2.5-pro")
 
 # ---------------- タブ作成 ---------------- #
 tab1, tab2 = st.tabs(["ドキュメントQA", "チャットボット"])
