@@ -6,15 +6,15 @@ import PyPDF2
 from docx import Document
 import openpyxl
 import io
+from pptx import Presentation  # 追加
 
 # タイトルと説明を表示
-st.title("📄 まとめてくれると嬉しいな")
+st.title("📄 ドキュメント質問応答")
 st.write(
     "下のフォームからドキュメントをアップロードし、質問を入力してください。GPTが回答します！"
     "このアプリを利用するには OpenAI API キーが必要です。取得方法は[こちら](https://platform.openai.com/account/api-keys)。"
 )
 
-# OpenAI APIキーを入力してもらう
 openai_api_key = st.text_input("OpenAI APIキー", type="password")
 if not openai_api_key:
     st.info("OpenAI APIキーを入力してください。", icon="🗝️")
@@ -23,11 +23,10 @@ else:
 
     # ファイルアップロード（拡張子追加）
     uploaded_file = st.file_uploader(
-        "ドキュメントをアップロードしてください（.txt, .md, .pdf, .docx, .xlsx）", 
-        type=("txt", "md", "pdf", "docx", "xlsx")
+        "ドキュメントをアップロードしてください（.txt, .md, .pdf, .docx, .xlsx, .pptx）", 
+        type=("txt", "md", "pdf", "docx", "xlsx", "pptx")
     )
 
-    # 質問を入力してもらう
     question = st.text_area(
         "ドキュメントについて質問してください！",
         placeholder="この文書の要約を教えてください。",
@@ -54,6 +53,14 @@ else:
             for ws in wb.worksheets:
                 for row in ws.iter_rows(values_only=True):
                     text += " ".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
+            return text
+        elif ext == 'pptx':
+            prs = Presentation(io.BytesIO(file.read()))
+            text = ""
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        text += shape.text + "\n"
             return text
         else:
             return None
