@@ -1,5 +1,5 @@
 import streamlit as st
-from openai import OpenAI
+import google.generativeai as genai
 import PyPDF2
 from docx import Document
 import openpyxl
@@ -7,19 +7,19 @@ import io
 from pptx import Presentation
 import json
 
-st.title("📄 ドキュメント質問応答 & 🤖 チャットボット")
+st.title("📄 ドキュメント質問応答 & 🤖 チャットボット（Gemini Pro対応）")
 st.write(
-    "ドキュメントQA（ファイル質問）とチャットボット（自由会話）の両方が使えます。"
-    "このアプリを利用するには OpenAI API キーが必要です。取得方法は[こちら](https://platform.openai.com/account/api-keys)。"
+    "ドキュメントQA（ファイル質問）とチャットボット（自由会話）が使えます。"
+    "このアプリを利用するには Gemini API Key が必要です。取得方法は[こちら](https://aistudio.google.com/app/apikey)。"
 )
 
-openai_api_key = st.text_input("OpenAI APIキー", type="password")
-if not openai_api_key:
-    st.info("OpenAI APIキーを入力してください。", icon="🗝️")
+gemini_api_key = st.text_input("Gemini APIキー", type="password")
+if not gemini_api_key:
+    st.info("Gemini APIキーを入力してください。", icon="🔑")
 else:
-    client = OpenAI(api_key=openai_api_key)
+    genai.configure(api_key=gemini_api_key)
+    model = genai.GenerativeModel("gemini-pro")
 
-    # タブ切り替え
     tab1, tab2 = st.tabs(["ドキュメントQA", "チャットボット"])
 
     # 履歴データの初期化
@@ -28,7 +28,7 @@ else:
     if "history_chat" not in st.session_state:
         st.session_state["history_chat"] = []
 
-    # -------- ドキュメントQAタブ -------- #
+    # -------- ドキュメントQA -------- #
     with tab1:
         uploaded_file = st.file_uploader(
             "ドキュメントをアップロードしてください（.txt, .md, .pdf, .docx, .xlsx, .pptx）", 
@@ -79,24 +79,19 @@ else:
             if not document or document.strip() == "":
                 st.error("ファイルからテキストを抽出できませんでした。")
             else:
-                messages = [
-                    {
-                        "role": "user",
-                        "content": f"以下はドキュメントです: {document} \n\n---\n\n {question}",
-                    }
-                ]
-                stream = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    stream=True,
-                )
-                answer = st.write_stream(stream)
-                st.session_state["history_doc"].append({
-                    "question": question,
-                    "answer": answer,
-                    "bookmark": False,
-                    "doc_name": uploaded_file.name
-                })
+                prompt = f"以下はドキュメントです:\n{document}\n\n---\n\n{question}"
+                try:
+                    response = model.generate_content(prompt)
+                    answer = response.text
+                    st.write(answer)
+                    st.session_state["history_doc"].append({
+                        "question": question,
+                        "answer": answer,
+                        "bookmark": False,
+                        "doc_name": uploaded_file.name
+                    })
+                except Exception as e:
+                    st.error(f"Gemini APIエラー: {e}")
 
         st.header("履歴（ドキュメントQA）")
         for i, h in enumerate(st.session_state["history_doc"]):
@@ -118,7 +113,7 @@ else:
         history_json = json.dumps(st.session_state["history_doc"], ensure_ascii=False, indent=2)
         st.download_button("履歴をダウンロード（ドキュメントQA）", data=history_json, file_name="history_doc.json", mime="application/json")
 
-    # -------- チャットボットタブ -------- #
+    # -------- チャットボット -------- #
     with tab2:
         user_message = st.text_area(
             "チャットを入力してください",
@@ -127,19 +122,17 @@ else:
         )
 
         if user_message:
-            # 直近の履歴を使って会話
-            messages = [{"role": "user", "content": user_message}]
-            stream = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                stream=True,
-            )
-            answer = st.write_stream(stream)
-            st.session_state["history_chat"].append({
-                "question": user_message,
-                "answer": answer,
-                "bookmark": False,
-            })
+            try:
+                response = model.generate_content(user_message)
+                answer = response.text
+                st.write(answer)
+                st.session_state["history_chat"].append({
+                    "question": user_message,
+                    "answer": answer,
+                    "bookmark": False,
+                })
+            except Exception as e:
+                st.error(f"Gemini APIエラー: {e}")
 
         st.header("履歴（チャットボット）")
         for i, h in enumerate(st.session_state["history_chat"]):
