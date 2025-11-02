@@ -7,7 +7,7 @@ import io
 from pptx import Presentation
 import json
 
-st.title("📄 ドキュメント質問応答 & 🤖 チャットボット（Gemini Pro対応）")
+st.title("📄 ドキュメント質問応答 & 🤖 チャットボット（Gemini 2.5 Pro対応）")
 st.write(
     "ドキュメントQA（ファイル質問）とチャットボット（自由会話）が使えます。"
     "このアプリを利用するには Gemini API Key が必要です。取得方法は[こちら](https://aistudio.google.com/app/apikey)。"
